@@ -1,0 +1,145 @@
+{
+  "entities": {
+    "UserSecurityConfig": {
+      "title": "UserSecurityConfig",
+      "description": "Per-user security preferences, salted PIN hashes, calculator disguise config, and subscription tier.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID of the vault owner." },
+        "email": { "type": "string", "description": "Owner Gmail address for break-in alert routing." },
+        "displayName": { "type": "string", "description": "Owner display name." },
+        "masterPinHash": { "type": "string", "description": "PBKDF2-HMAC-SHA256 salted hash of the Master PIN/Password." },
+        "decoyPinHash": { "type": "string", "description": "PBKDF2 salted hash of the fake decoy vault PIN, or empty." },
+        "panicPinHash": { "type": "string", "description": "PBKDF2 salted hash of the instant-wipe panic PIN, or empty." },
+        "calculatorCode": { "type": "string", "description": "Secret numeric sequence to unlock vault from Calculator Mode." },
+        "fingerprintEnabled": { "type": "boolean", "description": "Whether fingerprint unlock is active." },
+        "faceLockEnabled": { "type": "boolean", "description": "Whether face biometric unlock is active." },
+        "doubleSecurityMode": { "type": "boolean", "description": "Requires both biometric and Master PIN." },
+        "fastMode": { "type": "boolean", "description": "Fingerprint-first fast unlock mode." },
+        "calculatorModeEnabled": { "type": "boolean", "description": "Whether app launches disguised as a calculator." },
+        "autoBackupEnabled": { "type": "boolean", "description": "Whether automatic AES-256 cloud backup is enabled." },
+        "autoLockSeconds": { "type": "integer", "description": "Inactivity timeout before auto-locking vault." },
+        "wrongAttempts": { "type": "integer", "description": "Consecutive failed unlock attempts counter." },
+        "planTier": { "type": "string", "enum": ["FREE", "PRO"], "description": "Subscription tier." },
+        "proPlanCycle": { "type": "string", "enum": ["NONE", "MONTHLY_99", "YEARLY_799"], "description": "Selected billing cycle." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp." }
+      },
+      "required": [
+        "userId", "email", "displayName", "masterPinHash", "decoyPinHash", "panicPinHash",
+        "calculatorCode", "fingerprintEnabled", "faceLockEnabled", "doubleSecurityMode",
+        "fastMode", "calculatorModeEnabled", "autoBackupEnabled", "autoLockSeconds",
+        "wrongAttempts", "planTier", "proPlanCycle", "createdAt", "updatedAt"
+      ]
+    },
+    "VaultFolder": {
+      "title": "VaultFolder",
+      "description": "Auto-sorted or custom user folder with optional per-folder lock.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string", "enum": ["PHOTOS", "VIDEOS", "MUSIC", "PDFS", "DOCUMENTS", "OTHERS", "CUSTOM"] },
+        "colorHex": { "type": "string" },
+        "iconKey": { "type": "string" },
+        "systemFolder": { "type": "boolean" },
+        "locked": { "type": "boolean" },
+        "folderPinHash": { "type": "string" },
+        "decoyOnly": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "name", "category", "colorHex", "iconKey",
+        "systemFolder", "locked", "folderPinHash", "decoyOnly", "createdAt", "updatedAt"
+      ]
+    },
+    "VaultFileMeta": {
+      "title": "VaultFileMeta",
+      "description": "Metadata for an AES-256-GCM encrypted file stored privately inside Gopon Vault.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "folderId": { "type": "string" },
+        "name": { "type": "string" },
+        "extension": { "type": "string" },
+        "mimeType": { "type": "string" },
+        "category": { "type": "string", "enum": ["PHOTOS", "VIDEOS", "MUSIC", "PDFS", "DOCUMENTS", "OTHERS"] },
+        "sizeBytes": { "type": "integer" },
+        "durationMs": { "type": "integer" },
+        "encryptedBlobPath": { "type": "string" },
+        "sha256Checksum": { "type": "string" },
+        "backedUp": { "type": "boolean" },
+        "decoyItem": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "folderId", "name", "extension", "mimeType", "category",
+        "sizeBytes", "durationMs", "encryptedBlobPath", "sha256Checksum",
+        "backedUp", "decoyItem", "createdAt", "updatedAt"
+      ]
+    },
+    "SecurityAlertLog": {
+      "title": "SecurityAlertLog",
+      "description": "Intruder alert audit log including break-in selfie path, location, and Gmail alert triggers.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "alertType": { "type": "string", "enum": ["BREAK_IN_SELFIE", "WARNING_EMAIL_10", "CRITICAL_WARNING_15", "VAULT_WIPED_20", "PANIC_WIPE"] },
+        "attemptCount": { "type": "integer" },
+        "detail": { "type": "string" },
+        "locationText": { "type": "string" },
+        "selfieLocalPath": { "type": "string" },
+        "emailAlertTarget": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "alertType", "attemptCount", "detail",
+        "locationText", "selfieLocalPath", "emailAlertTarget", "createdAt"
+      ]
+    },
+    "CloudBackupRecord": {
+      "title": "CloudBackupRecord",
+      "description": "AES-256-GCM encrypted vault index snapshot encrypted with the Master Password.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "label": { "type": "string" },
+        "itemCount": { "type": "integer" },
+        "totalBytes": { "type": "integer" },
+        "encryptionAlgo": { "type": "string" },
+        "saltBase64": { "type": "string" },
+        "ivBase64": { "type": "string" },
+        "encryptedManifestBase64": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "label", "itemCount", "totalBytes", "encryptionAlgo",
+        "saltBase64", "ivBase64", "encryptedManifestBase64", "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserSecurityConfig" },
+      "description": "User-owned vault security settings and Pro subscription status."
+    },
+    "/users/{userId}/folders/{folderId}": {
+      "schema": { "$ref": "#/entities/VaultFolder" },
+      "description": "User-owned vault folders with optional per-folder lock."
+    },
+    "/users/{userId}/files/{fileId}": {
+      "schema": { "$ref": "#/entities/VaultFileMeta" },
+      "description": "User-owned encrypted vault file metadata."
+    },
+    "/users/{userId}/securityAlerts/{alertId}": {
+      "schema": { "$ref": "#/entities/SecurityAlertLog" },
+      "description": "User-owned break-in selfie and wrong-attempt alert records."
+    },
+    "/users/{userId}/backups/{backupId}": {
+      "schema": { "$ref": "#/entities/CloudBackupRecord" },
+      "description": "User-owned AES-256 encrypted cloud backup records."
+    }
+  }
+}

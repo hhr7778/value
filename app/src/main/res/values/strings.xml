@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Gopon Vault</string>
+    <string name="vault_tagline">Zero-Knowledge Personal Vault</string>
+    <string name="place_your_finger">Place your finger</string>
+    <string name="enter_privacy_password">Enter privacy password</string>
+    <string name="sign_in_google">Sign in with Google</string>
+</resources>

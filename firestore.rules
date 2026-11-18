@@ -1,0 +1,237 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidUserSecurityConfig(data, userId) {
+      return data.userId is string && data.userId == userId && data.userId.size() <= 128 &&
+             data.email is string && data.email.size() <= 200 &&
+             data.displayName is string && data.displayName.size() <= 100 &&
+             data.masterPinHash is string && data.masterPinHash.size() >= 1 && data.masterPinHash.size() <= 160 &&
+             data.decoyPinHash is string && data.decoyPinHash.size() <= 160 &&
+             data.panicPinHash is string && data.panicPinHash.size() <= 160 &&
+             data.calculatorCode is string && data.calculatorCode.size() >= 4 && data.calculatorCode.size() <= 20 &&
+             data.fingerprintEnabled is bool &&
+             data.faceLockEnabled is bool &&
+             data.doubleSecurityMode is bool &&
+             data.fastMode is bool &&
+             data.calculatorModeEnabled is bool &&
+             data.autoBackupEnabled is bool &&
+             data.autoLockSeconds is int && data.autoLockSeconds >= 15 && data.autoLockSeconds <= 3600 &&
+             data.wrongAttempts is int && data.wrongAttempts >= 0 && data.wrongAttempts <= 25 &&
+             data.planTier in ['FREE', 'PRO'] &&
+             data.proPlanCycle in ['NONE', 'MONTHLY_99', 'YEARLY_799'];
+    }
+
+    function isValidVaultFolder(data, userId) {
+      return data.userId is string && data.userId == userId && data.userId.size() <= 128 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
+             data.category in ['PHOTOS', 'VIDEOS', 'MUSIC', 'PDFS', 'DOCUMENTS', 'OTHERS', 'CUSTOM'] &&
+             data.colorHex is string && data.colorHex.size() >= 4 && data.colorHex.size() <= 16 &&
+             data.iconKey is string && data.iconKey.size() >= 1 && data.iconKey.size() <= 30 &&
+             data.systemFolder is bool &&
+             data.locked is bool &&
+             data.folderPinHash is string && data.folderPinHash.size() <= 160 &&
+             data.decoyOnly is bool;
+    }
+
+    function isValidVaultFileMeta(data, userId) {
+      return data.userId is string && data.userId == userId && data.userId.size() <= 128 &&
+             data.folderId is string && data.folderId.size() >= 1 && data.folderId.size() <= 128 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 160 &&
+             data.extension is string && data.extension.size() >= 1 && data.extension.size() <= 16 &&
+             data.mimeType is string && data.mimeType.size() >= 1 && data.mimeType.size() <= 100 &&
+             data.category in ['PHOTOS', 'VIDEOS', 'MUSIC', 'PDFS', 'DOCUMENTS', 'OTHERS'] &&
+             data.sizeBytes is int && data.sizeBytes >= 0 &&
+             data.durationMs is int && data.durationMs >= 0 &&
+             data.encryptedBlobPath is string && data.encryptedBlobPath.size() >= 1 && data.encryptedBlobPath.size() <= 300 &&
+             data.sha256Checksum is string && data.sha256Checksum.size() >= 1 && data.sha256Checksum.size() <= 128 &&
+             data.backedUp is bool &&
+             data.decoyItem is bool;
+    }
+
+    function isValidSecurityAlertLog(data, userId) {
+      return data.userId is string && data.userId == userId && data.userId.size() <= 128 &&
+             data.alertType in ['BREAK_IN_SELFIE', 'WARNING_EMAIL_10', 'CRITICAL_WARNING_15', 'VAULT_WIPED_20', 'PANIC_WIPE'] &&
+             data.attemptCount is int && data.attemptCount >= 0 && data.attemptCount <= 100 &&
+             data.detail is string && data.detail.size() >= 1 && data.detail.size() <= 400 &&
+             data.locationText is string && data.locationText.size() <= 200 &&
+             data.selfieLocalPath is string && data.selfieLocalPath.size() <= 300 &&
+             data.emailAlertTarget is string && data.emailAlertTarget.size() <= 200;
+    }
+
+    function isValidCloudBackupRecord(data, userId) {
+      return data.userId is string && data.userId == userId && data.userId.size() <= 128 &&
+             data.label is string && data.label.size() >= 1 && data.label.size() <= 100 &&
+             data.itemCount is int && data.itemCount >= 0 &&
+             data.totalBytes is int && data.totalBytes >= 0 &&
+             data.encryptionAlgo is string && data.encryptionAlgo.size() >= 1 && data.encryptionAlgo.size() <= 50 &&
+             data.saltBase64 is string && data.saltBase64.size() >= 1 && data.saltBase64.size() <= 100 &&
+             data.ivBase64 is string && data.ivBase64.size() >= 1 && data.ivBase64.size() <= 100 &&
+             data.encryptedManifestBase64 is string && data.encryptedManifestBase64.size() >= 1 && data.encryptedManifestBase64.size() <= 500000;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'email', 'displayName', 'masterPinHash', 'decoyPinHash', 'panicPinHash',
+                         'calculatorCode', 'fingerprintEnabled', 'faceLockEnabled', 'doubleSecurityMode',
+                         'fastMode', 'calculatorModeEnabled', 'autoBackupEnabled', 'autoLockSeconds',
+                         'wrongAttempts', 'planTier', 'proPlanCycle', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'email', 'displayName', 'masterPinHash', 'decoyPinHash', 'panicPinHash',
+                         'calculatorCode', 'fingerprintEnabled', 'faceLockEnabled', 'doubleSecurityMode',
+                         'fastMode', 'calculatorModeEnabled', 'autoBackupEnabled', 'autoLockSeconds',
+                         'wrongAttempts', 'planTier', 'proPlanCycle', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidUserSecurityConfig(incoming(), userId);
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidUserSecurityConfig(incoming(), userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'email', 'displayName', 'masterPinHash', 'decoyPinHash', 'panicPinHash',
+                         'calculatorCode', 'fingerprintEnabled', 'faceLockEnabled', 'doubleSecurityMode',
+                         'fastMode', 'calculatorModeEnabled', 'autoBackupEnabled', 'autoLockSeconds',
+                         'wrongAttempts', 'planTier', 'proPlanCycle', 'updatedAt'
+                       ]);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /folders/{folderId} {
+        allow list: if isOwner(userId);
+        allow get, delete: if isOwner(userId) && isValidId(folderId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(folderId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'name', 'category', 'colorHex', 'iconKey',
+                           'systemFolder', 'locked', 'folderPinHash', 'decoyOnly', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'name', 'category', 'colorHex', 'iconKey',
+                           'systemFolder', 'locked', 'folderPinHash', 'decoyOnly', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidVaultFolder(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(folderId) &&
+                         isValidVaultFolder(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'name', 'category', 'colorHex', 'iconKey',
+                           'locked', 'folderPinHash', 'updatedAt'
+                         ]);
+      }
+
+      match /files/{fileId} {
+        allow list: if isOwner(userId);
+        allow get, delete: if isOwner(userId) && isValidId(fileId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(fileId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'folderId', 'name', 'extension', 'mimeType', 'category',
+                           'sizeBytes', 'durationMs', 'encryptedBlobPath', 'sha256Checksum',
+                           'backedUp', 'decoyItem', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'folderId', 'name', 'extension', 'mimeType', 'category',
+                           'sizeBytes', 'durationMs', 'encryptedBlobPath', 'sha256Checksum',
+                           'backedUp', 'decoyItem', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidVaultFileMeta(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(fileId) &&
+                         isValidVaultFileMeta(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'folderId', 'name', 'backedUp', 'updatedAt'
+                         ]);
+      }
+
+      match /securityAlerts/{alertId} {
+        allow list: if isOwner(userId);
+        allow get, delete: if isOwner(userId) && isValidId(alertId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(alertId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'alertType', 'attemptCount', 'detail',
+                           'locationText', 'selfieLocalPath', 'emailAlertTarget', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'alertType', 'attemptCount', 'detail',
+                           'locationText', 'selfieLocalPath', 'emailAlertTarget', 'createdAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         isValidSecurityAlertLog(incoming(), userId);
+
+        allow update: if false;
+      }
+
+      match /backups/{backupId} {
+        allow list: if isOwner(userId);
+        allow get, delete: if isOwner(userId) && isValidId(backupId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(backupId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'label', 'itemCount', 'totalBytes', 'encryptionAlgo',
+                           'saltBase64', 'ivBase64', 'encryptedManifestBase64', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'label', 'itemCount', 'totalBytes', 'encryptionAlgo',
+                           'saltBase64', 'ivBase64', 'encryptedManifestBase64', 'createdAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         isValidCloudBackupRecord(incoming(), userId);
+
+        allow update: if false;
+      }
+    }
+  }
+}
